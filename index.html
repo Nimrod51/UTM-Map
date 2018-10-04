@@ -31,11 +31,16 @@
 
 
 <body>
-<label for="input">Select a zipped shapefile:</label> <input type="file" id="file"> <br>
+<h1>UTM Map</h1>
+<p>This map allows to visualize a zipped Shapefile to view its location, as well as the corresponding UTM zone it falls in.</p>
+<p>Upon clicking the UTM layer, it is also possible to see the corresponding EPSG codes of 3 datums (WGS84, Arc 1960 and NAD83) for that particular UTM zone.</p>
+<label for="input">Select a zipped shapefile (optional):</label> <input type="file" id="file"> <br>
 <input type="submit" id="submit"> <span id="warning"></span>
-<div id="mapid"></div> <!-- Must have 'height' in style argument -->
+<br>
+<div id="mapid"></div> 
 <script src="js/leaflet.shpfile.js"></script>
 <script src="js/shp.js"></script>
+<script src="js/UTM_EPSG.geojson"></script>
 <script>
 
 //Global Variables
@@ -85,24 +90,29 @@ if (feature.properties.WGS84 && feature.properties.UTM_Zone) {
 }
 }
 
-
-
-
-let xhr = new XMLHttpRequest();
-xhr.open('GET', 'js/UTM_EPSG.geojson');
-xhr.setRequestHeader('Content-Type', 'application/json');
-xhr.onload = function() {
-    if (xhr.status === 200) {
-        data = JSON.parse(xhr.responseText)
-        UTM = L.geoJson(data,{
-        	style: myStyle,
+UTM = L.geoJson(utmzones,{
+       style: myStyle,
         	onEachFeature: onEachFeature
         	}).addTo(map);
-        overlays = {"UTM Zones": UTM};
-        ctrl = L.control.layers(baseLayers,overlays).addTo(map);
-    }
-};
-xhr.send();
+overlays = {"UTM Zones": UTM};
+ctrl = L.control.layers(baseLayers,overlays).addTo(map);
+
+
+<!-- let xhr = new XMLHttpRequest(); -->
+<!-- xhr.open('GET', 'js/UTM_EPSG.geojson'); -->
+<!-- xhr.setRequestHeader('Content-Type', 'application/json'); -->
+<!-- xhr.onload = function() { -->
+    <!-- if (xhr.status === 200) { -->
+        <!-- data = JSON.parse(xhr.responseText) -->
+        <!-- UTM = L.geoJson(data,{ -->
+        	<!-- style: myStyle, -->
+        	<!-- onEachFeature: onEachFeature -->
+        	<!-- }).addTo(map); -->
+        <!-- overlays = {"UTM Zones": UTM}; -->
+        <!-- ctrl = L.control.layers(baseLayers,overlays).addTo(map); -->
+    <!-- } -->
+<!-- }; -->
+<!-- xhr.send(); -->
 
 
 document.getElementById("submit").onclick = function(e){
@@ -114,7 +124,7 @@ var files = document.getElementById('file').files;
   var file = files[0];
 
   if (file.name.slice(-3) != 'zip'){ //Demo only tested for .zip. All others, return.
-		document.getElementById('warning').innerHTML = 'Select .zip file';
+		document.getElementById('warning').innerHTML = 'Not a .zip file. Select .zip file';
     return;
   } else {
   	document.getElementById('warning').innerHTML = ''; //clear warning message.
