@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+	<title>Get UTM Zone</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+   integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+   crossorigin=""/>
+	 <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+	   integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+	   crossorigin=""></script>
+		<script
+		  src="https://code.jquery.com/jquery-3.2.1.js"
+		  integrity="sha256-DZAnKJ/6XZ9si04Hgrsxu/8s717jcIzLy3oi35EouyE="
+		  crossorigin="anonymous"></script>
+
+	<style>
+		#mapid {
+		height: 800px;
+		}
+
+		input {
+	  margin-top:10px;
+	}
+	</style>
+</head>
+
+
+<body>
+<label for="input">Select a zipped shapefile:</label> <input type="file" id="file"> <br>
+<input type="submit" id="submit"> <span id="warning"></span>
+<div id="mapid"></div> <!-- Must have 'height' in style argument -->
+<script src="js/leaflet.shpfile.js"></script>
+<script src="js/shp.js"></script>
+<script>
+
+//Global Variables
+var UTM, overlays,data;
+var ctrl = new L.LayerGroup();
+
+var mbAttr = 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+		'<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+		'Imagery © <a href="http://mapbox.com">Mapbox</a>',
+mbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibmdhdmlzaCIsImEiOiJjaXFheHJmc2YwMDdoaHNrcWM4Yjhsa2twIn0.8i1Xxwd1XifUU98dGE9nsQ';
+
+var grayscale   = L.tileLayer(mbUrl, {id: 'mapbox.light', attribution: mbAttr}),
+	streets  = L.tileLayer(mbUrl, {id: 'mapbox.streets',   attribution: mbAttr}),
+	outdoors = L.tileLayer(mbUrl, {id: 'mapbox.outdoors', attribution: mbAttr}),
+	satellite = L.tileLayer(mbUrl, {id: 'mapbox.satellite', attribution: mbAttr}),
+	dark = L.tileLayer(mbUrl, {id: 'mapbox.dark', attribution: mbAttr}),
+	light = L.tileLayer(mbUrl, {id: 'mapbox.light', attribution: mbAttr}),
+	satellitestreets = L.tileLayer(mbUrl, {id: 'mapbox.streets-satellite', attribution: mbAttr});
+
+var map = L.map('mapid', {
+	center: [51.962038,7.625937], /*Default location */
+	zoom: 3, /*Default Zoom */
+	layers: [light] // Default basemaplayer on startrup, can also give another layer here to show by default)
+});
+
+var baseLayers = {
+	"Grayscale": grayscale,
+	"Streets": streets,
+	"Outdoors": outdoors,
+	"Satellite": satellite,
+	"Satellite Streets": satellitestreets,
+	"Dark Map": dark,
+	"Light Map": light
+};
+
+
+var myStyle = {
+"color": "#66ff66",
+"weight": 1,
+"opacity": 0.65
+};
+
+function onEachFeature(feature, layer) {
+
+if (feature.properties.WGS84 && feature.properties.UTM_Zone) {
+    layer.bindPopup("<b>UTM Zone: </b>" + feature.properties.UTM_Zone + "<br>" +"<b>WGS84 EPSG: </b>" + feature.properties.WGS84 + "<br>"+"<b>Arc 1960 EPSG: </b>" + feature.properties.Arc_1960 + "<br>" +"<b>NAD83 EPSG: </b>" + feature.properties.NAD83);
+}
+}
+
+
+
+
+let xhr = new XMLHttpRequest();
+xhr.open('GET', 'js/UTM_EPSG.geojson');
+xhr.setRequestHeader('Content-Type', 'application/json');
+xhr.onload = function() {
+    if (xhr.status === 200) {
+        data = JSON.parse(xhr.responseText)
+        UTM = L.geoJson(data,{
+        	style: myStyle,
+        	onEachFeature: onEachFeature
+        	}).addTo(map);
+        overlays = {"UTM Zones": UTM};
+        ctrl = L.control.layers(baseLayers,overlays).addTo(map);
+    }
+};
+xhr.send();
+
+
+document.getElementById("submit").onclick = function(e){
+var files = document.getElementById('file').files;
+	if (files.length == 0) {
+	  return; //do nothing if no file given yet
+  }
+
+  var file = files[0];
+
+  if (file.name.slice(-3) != 'zip'){ //Demo only tested for .zip. All others, return.
+		document.getElementById('warning').innerHTML = 'Select .zip file';
+    return;
+  } else {
+  	document.getElementById('warning').innerHTML = ''; //clear warning message.
+    handleZipFile(file);
+  }
+};
+
+//More info: https://developer.mozilla.org/en-US/docs/Web/API/FileReader
+function handleZipFile(file){
+	var reader = new FileReader();
+  reader.onload = function(){
+	  if (reader.readyState != 2 || reader.error){
+		  return;
+	  } else {
+		  convertToLayer(reader.result);
+  	}
+  }
+  reader.readAsArrayBuffer(file);
+}
+
+var geoJsonData;
+
+function onEachSHPFeature (feature,layer) {
+	//layer.bindPopup(feature.properties.HouseType);
+	layer.bindPopup(Object.keys(feature.properties).map(function(k) {
+                    if(k === '__color__'){
+                        return;
+                    }
+                    return k + ": " + feature.properties[k];
+                }).join("<br />"), {
+                    maxHeight: 200
+                });
+}
+
+function convertToLayer(buffer){
+	shp(buffer).then(function(geojson){
+	geoJsonData=geojson; //store variable for testing
+
+    var layer = L.shapefile(geojson, {onEachFeature: onEachSHPFeature}).addTo(map);
+    ctrl.addOverlay(layer,geojson.fileName);
+    console.log(layer);
+  });
+}
+
+
+</script>
+
+</body>
+</html>
