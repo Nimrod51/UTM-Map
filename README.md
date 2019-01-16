@@ -9,4 +9,4 @@ A leaflet Web map that presents UTM zones and possible projections
 Python2: `python2 -m SimpleHTTPServer`          
 Python3: `python3 -m http.server`   
   
-3) Go to localhost:8000 on your browser to view the app.
+3) Go to `localhost:8000` on your browser to view the app.
